@@ -29,8 +29,6 @@ manifest:
     path: config
 ```
 
----
-
 ## Summary: Tri-State
 
 Tri-States are a way to have something persist while other behaviors occur.
