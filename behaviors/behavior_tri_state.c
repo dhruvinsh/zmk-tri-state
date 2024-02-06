@@ -283,19 +283,19 @@ static int tri_state_layer_state_changed_listener(const zmk_event_t *eh) {
 
 #define IF_BIT(n, prop, i) BIT(DT_PROP_BY_IDX(n, prop, i)) |
 
-#define TRI_STATE_INST(n)                                                                           \
-    static struct behavior_tri_state_config behavior_tri_state_config_##n = {                       \
-        .ignored_key_positions = DT_INST_PROP(n, ignored_key_positions),                            \
-        .ignored_key_positions_len = DT_INST_PROP_LEN(n, ignored_key_positions),                    \
-        .ignored_layers = DT_INST_FOREACH_PROP_ELEM(n, ignored_layers, IF_BIT) 0,                   \
-        .ignored_layers_len = DT_INST_PROP_LEN(n, ignored_layers),                                  \
-        .timeout_ms = DT_INST_PROP(n, timeout_ms),                                                  \
-        .tap_ms = DT_INST_PROP(n, tap_ms),                                                          \
-        .start_behavior = _TRANSFORM_ENTRY(0, n),                                                   \
-        .continue_behavior = _TRANSFORM_ENTRY(1, n),                                                \
-        .end_behavior = _TRANSFORM_ENTRY(2, n)};                                                    \
-    BEHAVIOR_DT_INST_DEFINE(n, behavior_tri_state_init, NULL, NULL, &behavior_tri_state_config_##n, \
-                          APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,                         \
-                          &behavior_tri_state_driver_api);
+#define TRI_STATE_INST(n)                                                                          \
+    static struct behavior_tri_state_config behavior_tri_state_config_##n = {                      \
+        .ignored_key_positions = DT_INST_PROP(n, ignored_key_positions),                           \
+        .ignored_key_positions_len = DT_INST_PROP_LEN(n, ignored_key_positions),                   \
+        .ignored_layers = DT_INST_FOREACH_PROP_ELEM(n, ignored_layers, IF_BIT) 0,                  \
+        .ignored_layers_len = DT_INST_PROP_LEN(n, ignored_layers),                                 \
+        .timeout_ms = DT_INST_PROP(n, timeout_ms),                                                 \
+        .tap_ms = DT_INST_PROP(n, tap_ms),                                                         \
+        .start_behavior = _TRANSFORM_ENTRY(0, n),                                                  \
+        .continue_behavior = _TRANSFORM_ENTRY(1, n),                                               \
+        .end_behavior = _TRANSFORM_ENTRY(2, n)};                                                   \
+    BEHAVIOR_DT_INST_DEFINE(n, behavior_tri_state_init, NULL, NULL,                                \
+                            &behavior_tri_state_config_##n, APPLICATION,                           \
+                            CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &behavior_tri_state_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(TRI_STATE_INST)
