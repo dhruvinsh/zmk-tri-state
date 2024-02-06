@@ -29,6 +29,26 @@ manifest:
     path: config
 ```
 
+**NOTE: [common use-case](https://zmk.dev/docs/development/new-behavior#defining-common-use-cases-for-the-behavior-dtsi-optional) hasn't be define for this behavior.**
+
+To use,
+
+```devicetree
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+  behaviors {
+    swapper: swapper {
+      compatible = "zmk,behavior-tri-state";
+      #binding-cells = <0>;
+      bindings = <&kp A>, <&kp B>, <&kt C>;
+    };
+  };
+};
+```
+
+Once this define, `&swapper` can be use wherever it require, see below documentation.
+
 ## Summary: Tri-State
 
 Tri-States are a way to have something persist while other behaviors occur.
