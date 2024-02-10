@@ -5,6 +5,8 @@ Implement [Nick Conways's](https://github.com/nickconway) tri-state behavior for
 This is proof of concept that shows that without minting fork, new behavior can
 be implemented.
 
+This implementation supports Zephyr 3.5 changes.
+
 ## How to use this module?
 
 Under `config/west.yml` add `remotes` and `projects`, here is an example of
