@@ -2,15 +2,15 @@
 
 Implement [Nick Conways's](https://github.com/nickconway) tri-state behavior for [ZMK](https://github.com/zmkfirmware/zmk).
 
-This is proof of concept that shows that without minting fork, new behavior can
+This is proof of concept that shows that without maintaining fork, new behavior can
 be implemented.
 
-This implementation supports Zephyr 3.5 changes.
+This implementation supports latest Zephyr 3.5 release with ZMK.
 
 ## How to use this module?
 
 Under `config/west.yml` add `remotes` and `projects`, here is an example of
-full file.
+full file. Feel free to visit my config located [here](https://github.com/dhruvinsh/zmk-config/blob/0e4919ba45f08714bf1cc053c103ae1977bacd76/config/west.yml).
 
 ```yaml
 manifest:
@@ -49,7 +49,8 @@ To use,
 };
 ```
 
-Once this define, `&swapper` can be use wherever it require, see below documentation.
+Once this define, `&swapper` can be use wherever it require. See below
+documentation for further details. Working example can be find [here.](https://github.com/dhruvinsh/zmk-config/blob/0ed6b525a5834dc423eb600b4552b9afb9c621ee/config/include/behaviors.dtsi#L52-L61)
 
 ## Summary: Tri-State
 
@@ -212,3 +213,7 @@ has elapsed after releasing the Tri-State or a ignored key.
 - [Nick Conway](https://github.com/nickconway)
 - [Cem Aksoylar](https://github.com/caksoylar)
 - ZMK and Zephyr
+
+## Other Project
+
+- [ZMK-NUM-WORD](https://github.com/dhruvinsh/zmk-num-word)
