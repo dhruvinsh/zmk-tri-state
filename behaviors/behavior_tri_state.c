@@ -20,15 +20,14 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-#if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
-
 #define ZMK_BHV_MAX_ACTIVE_TRI_STATES 10
 
 struct behavior_tri_state_config {
     int32_t ignored_key_positions_len;
     int32_t ignored_layers_len;
-    struct zmk_behavior_binding *behaviors;
-    size_t behavior_count;
+    struct zmk_behavior_binding start_behavior;
+    struct zmk_behavior_binding continue_behavior;
+    struct zmk_behavior_binding end_behavior;
     int32_t ignored_layers;
     int32_t timeout_ms;
     int tap_ms;
@@ -40,6 +39,9 @@ struct active_tri_state {
     bool is_pressed;
     bool first_press;
     uint32_t position;
+#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+    uint8_t source;
+#endif
     const struct behavior_tri_state_config *config;
     struct k_work_delayable release_timer;
     int64_t release_at;
@@ -66,8 +68,15 @@ static void reset_timer(int32_t timestamp, struct active_tri_state *tri_state) {
 }
 
 void trigger_end_behavior(struct active_tri_state *si) {
-    zmk_behavior_queue_add(si->position, si->config->behaviors[2], true, si->config->tap_ms);
-    zmk_behavior_queue_add(si->position, si->config->behaviors[2], false, 0);
+    struct zmk_behavior_binding_event event = {
+        .position = si->position,
+#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+        .source = si->source,
+#endif
+    };
+
+    zmk_behavior_queue_add(&event, si->config->end_behavior, true, si->config->tap_ms);
+    zmk_behavior_queue_add(&event, si->config->end_behavior, false, 0);
 }
 
 void behavior_tri_state_timer_handler(struct k_work *item) {
@@ -95,12 +104,16 @@ static struct active_tri_state *find_tri_state(uint32_t position) {
     return NULL;
 }
 
-static int new_tri_state(uint32_t position, const struct behavior_tri_state_config *config,
+static int new_tri_state(struct zmk_behavior_binding_event *event,
+                         const struct behavior_tri_state_config *config,
                          struct active_tri_state **tri_state) {
     for (int i = 0; i < ZMK_BHV_MAX_ACTIVE_TRI_STATES; i++) {
         struct active_tri_state *const ref_tri_state = &active_tri_states[i];
         if (!ref_tri_state->is_active) {
-            ref_tri_state->position = position;
+            ref_tri_state->position = event->position;
+#if IS_ENABLED(CONFIG_ZMK_SPLIT)
+            ref_tri_state->source = event->source;
+#endif
             ref_tri_state->config = config;
             ref_tri_state->is_active = true;
             ref_tri_state->is_pressed = false;
@@ -130,12 +143,12 @@ static bool is_layer_ignored(struct active_tri_state *tri_state, int32_t layer) 
 
 static int on_tri_state_binding_pressed(struct zmk_behavior_binding *binding,
                                         struct zmk_behavior_binding_event event) {
-    const struct device *dev = device_get_binding(binding->behavior_dev);
+    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
     const struct behavior_tri_state_config *cfg = dev->config;
     struct active_tri_state *tri_state;
     tri_state = find_tri_state(event.position);
     if (tri_state == NULL) {
-        if (new_tri_state(event.position, cfg, &tri_state) == -ENOMEM) {
+        if (new_tri_state(&event, cfg, &tri_state) == -ENOMEM) {
             LOG_ERR("Unable to create new tri_state. Insufficient space in "
                     "active_tri_states[].");
             return ZMK_BEHAVIOR_OPAQUE;
@@ -145,31 +158,34 @@ static int on_tri_state_binding_pressed(struct zmk_behavior_binding *binding,
     LOG_DBG("%d tri_state pressed", event.position);
     tri_state->is_pressed = true;
     if (tri_state->first_press) {
-        behavior_keymap_binding_pressed(&cfg->behaviors[0], event);
-        behavior_keymap_binding_released(&cfg->behaviors[0], event);
+        zmk_behavior_invoke_binding((struct zmk_behavior_binding *)&cfg->start_behavior, event,
+                                    true);
+        zmk_behavior_invoke_binding((struct zmk_behavior_binding *)&cfg->start_behavior, event,
+                                    false);
         tri_state->first_press = false;
     }
-    behavior_keymap_binding_pressed(&cfg->behaviors[1], event);
+    zmk_behavior_invoke_binding((struct zmk_behavior_binding *)&cfg->continue_behavior, event,
+                                true);
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
 static void release_tri_state(struct zmk_behavior_binding_event event,
-                              struct zmk_behavior_binding *behavior) {
+                              struct zmk_behavior_binding *continue_behavior) {
     struct active_tri_state *tri_state = find_tri_state(event.position);
     if (tri_state == NULL) {
         return;
     }
     tri_state->is_pressed = false;
-    behavior_keymap_binding_released(behavior, event);
+    zmk_behavior_invoke_binding(continue_behavior, event, false);
     reset_timer(k_uptime_get(), tri_state);
 }
 
 static int on_tri_state_binding_released(struct zmk_behavior_binding *binding,
                                          struct zmk_behavior_binding_event event) {
-    const struct device *dev = device_get_binding(binding->behavior_dev);
+    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
     const struct behavior_tri_state_config *cfg = dev->config;
     LOG_DBG("%d tri_state keybind released", event.position);
-    release_tri_state(event, &cfg->behaviors[1]);
+    release_tri_state(event, (struct zmk_behavior_binding *)&cfg->continue_behavior);
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
@@ -227,7 +243,9 @@ static int tri_state_position_state_changed_listener(const zmk_event_t *eh) {
             struct zmk_behavior_binding_event event = {.position = tri_state->position,
                                                        .timestamp = k_uptime_get()};
             if (tri_state->is_pressed) {
-                behavior_keymap_binding_released(&tri_state->config->behaviors[1], event);
+                zmk_behavior_invoke_binding(
+                    (struct zmk_behavior_binding *)&tri_state->config->continue_behavior, event,
+                    false);
             }
             trigger_end_behavior(tri_state);
             return ZMK_EV_EVENT_BUBBLE;
@@ -260,27 +278,32 @@ static int tri_state_layer_state_changed_listener(const zmk_event_t *eh) {
             struct zmk_behavior_binding_event event = {.position = tri_state->position,
                                                        .timestamp = k_uptime_get()};
             if (tri_state->is_pressed) {
-                behavior_keymap_binding_released(&tri_state->config->behaviors[1], event);
+                zmk_behavior_invoke_binding(
+                    (struct zmk_behavior_binding *)&tri_state->config->continue_behavior, event,
+                    false);
             }
-            behavior_keymap_binding_pressed(&tri_state->config->behaviors[2], event);
-            behavior_keymap_binding_released(&tri_state->config->behaviors[2], event);
+            zmk_behavior_invoke_binding(
+                (struct zmk_behavior_binding *)&tri_state->config->end_behavior, event, true);
+            zmk_behavior_invoke_binding(
+                (struct zmk_behavior_binding *)&tri_state->config->end_behavior, event, false);
             return ZMK_EV_EVENT_BUBBLE;
         }
     }
     return ZMK_EV_EVENT_BUBBLE;
 }
 
-#define _TRANSFORM_ENTRY(idx, node) ZMK_KEYMAP_EXTRACT_BINDING(idx, node)
-
-#define TRANSFORMED_BINDINGS(node)                                                                 \
-    { LISTIFY(DT_INST_PROP_LEN(node, bindings), _TRANSFORM_ENTRY, (, ), DT_DRV_INST(node)) }
+#define _TRANSFORM_ENTRY(idx, node)                                                                \
+    {                                                                                              \
+        .behavior_dev = DEVICE_DT_NAME(DT_INST_PHANDLE_BY_IDX(node, bindings, idx)),               \
+        .param1 = COND_CODE_0(DT_INST_PHA_HAS_CELL_AT_IDX(node, bindings, idx, param1), (0),       \
+                              (DT_INST_PHA_BY_IDX(node, bindings, idx, param1))),                  \
+        .param2 = COND_CODE_0(DT_INST_PHA_HAS_CELL_AT_IDX(node, bindings, idx, param2), (0),       \
+                              (DT_INST_PHA_BY_IDX(node, bindings, idx, param2))),                  \
+    }
 
 #define IF_BIT(n, prop, i) BIT(DT_PROP_BY_IDX(n, prop, i)) |
 
 #define TRI_STATE_INST(n)                                                                          \
-    static struct zmk_behavior_binding                                                             \
-        behavior_tri_state_config_##n##_bindings[DT_INST_PROP_LEN(n, bindings)] =                  \
-            TRANSFORMED_BINDINGS(n);                                                               \
     static struct behavior_tri_state_config behavior_tri_state_config_##n = {                      \
         .ignored_key_positions = DT_INST_PROP(n, ignored_key_positions),                           \
         .ignored_key_positions_len = DT_INST_PROP_LEN(n, ignored_key_positions),                   \
@@ -288,12 +311,11 @@ static int tri_state_layer_state_changed_listener(const zmk_event_t *eh) {
         .ignored_layers_len = DT_INST_PROP_LEN(n, ignored_layers),                                 \
         .timeout_ms = DT_INST_PROP(n, timeout_ms),                                                 \
         .tap_ms = DT_INST_PROP(n, tap_ms),                                                         \
-        .behaviors = behavior_tri_state_config_##n##_bindings,                                     \
-        .behavior_count = DT_INST_PROP_LEN(n, bindings)};                                          \
+        .start_behavior = _TRANSFORM_ENTRY(0, n),                                                  \
+        .continue_behavior = _TRANSFORM_ENTRY(1, n),                                               \
+        .end_behavior = _TRANSFORM_ENTRY(2, n)};                                                   \
     BEHAVIOR_DT_INST_DEFINE(n, behavior_tri_state_init, NULL, NULL,                                \
                             &behavior_tri_state_config_##n, POST_KERNEL,                           \
                             CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &behavior_tri_state_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(TRI_STATE_INST)
-
-#endif
