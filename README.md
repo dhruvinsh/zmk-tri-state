@@ -1,16 +1,15 @@
 # ZMK-TRI-STATE
 
-Implement [Nick Conways's](https://github.com/nickconway) tri-state behavior for [ZMK](https://github.com/zmkfirmware/zmk).
+A ZMK implementation of [Nick Conway's](https://github.com/nickconway) tri-state behavior for the
+[ZMK Firmware](https://github.com/zmkfirmware/zmk).
 
-This is proof of concept that shows that without maintaining fork, new behavior can
-be implemented.
+This project demonstrates how to implement custom behaviors without maintaining
+a separate ZMK fork. It's fully compatible with the latest Zephyr 3.5 release.
 
-This implementation supports latest Zephyr 3.5 release with ZMK.
+## Installation
 
-## How to use this module?
-
-Under `config/west.yml` add `remotes` and `projects`, here is an example of
-full file. Feel free to visit my config located [here](https://github.com/dhruvinsh/zmk-config/blob/0e4919ba45f08714bf1cc053c103ae1977bacd76/config/west.yml).
+Add this module to your ZMK config by modifying your `config/west.yml` file. Add
+the necessary `remotes` and `projects` sections as shown below:
 
 ```yaml
 manifest:
@@ -31,9 +30,13 @@ manifest:
     path: config
 ```
 
-**NOTE: [common use-case](https://zmk.dev/docs/development/new-behavior#defining-common-use-cases-for-the-behavior-dtsi-optional) hasn't be define for this behavior.**
+For a complete example configuration, see [my ZMK config](https://github.com/dhruvinsh/zmk-config/blob/0e4919ba45f08714bf1cc053c103ae1977bacd76/config/west.yml).
 
-To use,
+**NOTE: Common use-cases have not yet been defined for this behavior in the DTSI format. See [ZMK documentation](https://zmk.dev/docs/development/new-behavior#defining-common-use-cases-for-the-behavior-dtsi-optional) for more information.**
+
+## Basic Usage
+
+Add the tri-state behavior to your keymap:
 
 ```devicetree
 #include <dt-bindings/zmk/keys.h>
@@ -49,8 +52,7 @@ To use,
 };
 ```
 
-Once this define, `&swapper` can be use wherever it require. See below
-documentation for further details. Working example can be find [here.](https://github.com/dhruvinsh/zmk-config/blob/0ed6b525a5834dc423eb600b4552b9afb9c621ee/config/include/behaviors.dtsi#L52-L61)
+After defining it, you can use `&swapper` anywhere in your keymap. See the detailed documentation below for more information and check out a [working example here](https://github.com/dhruvinsh/zmk-config/blob/0ed6b525a5834dc423eb600b4552b9afb9c621ee/config/include/behaviors.dtsi#L52-L61).
 
 ## Summary: Tri-State
 
@@ -212,8 +214,8 @@ has elapsed after releasing the Tri-State or a ignored key.
 - [Pete Johanson](https://github.com/petejohanson)
 - [Nick Conway](https://github.com/nickconway)
 - [Cem Aksoylar](https://github.com/caksoylar)
-- ZMK and Zephyr
+- ZMK and Zephyr Teams
 
-## Other Project
+## Related Projects
 
 - [ZMK-NUM-WORD](https://github.com/dhruvinsh/zmk-num-word)
